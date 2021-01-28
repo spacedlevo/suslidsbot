@@ -102,7 +102,7 @@ async def whosus(ctx):
     await ctx.send(response)
 
 
-@bot.command(name='upload_stats', description='includes a s')
+@bot.command(name='upload_stats', description='reads a screenshot attached to feed the database with stats')
 async def upload_stats(ctx):
     if ctx.message.attachments:
         print(f"Got attachment: {ctx.message.attachments}")
@@ -115,7 +115,7 @@ async def upload_stats(ctx):
             os.remove(file_name)
             await ctx.send(f"I read {ctx.message.author.name}'s stats as {str(stats)}")
 
-@bot.command(name='wins')
+@bot.command(name='wins', description='calculates sum of ways to win either imp/crew and finds % times you win. add imposter or crewmate as argument')
 async def win_rate(ctx, play_type):
     if play_type == 'imposter':
         cols = 'imp_vote_wins, imp_kill_wins, imp_sab_wins, times_imp'
@@ -140,7 +140,7 @@ async def win_rate(ctx, play_type):
         response += f'{k}: {v}%\n'
     await ctx.send(response)
 
-@bot.command()
+@bot.command(name="kills_per_game", description="Leaderboard of how many kills per imp game")
 async def kills_per_game(ctx):
     with sql.connect(database_loc) as db:
         cur = db.cursor()
