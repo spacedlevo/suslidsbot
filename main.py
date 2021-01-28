@@ -162,9 +162,4 @@ async def kills_per_game(ctx):
         response += f'{k}: {v}\n'
     await ctx.send(response)
 
-
-
-
-
-
 bot.run(TOKEN)
