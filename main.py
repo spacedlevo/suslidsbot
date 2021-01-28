@@ -1,3 +1,4 @@
+#!/env/bin/python3
 # bot.py
 import os
 import sqlite3 as sql
