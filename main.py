@@ -1,4 +1,4 @@
-#!/env/bin/python3
+#!/env/bin/python
 # bot.py
 import os
 import sqlite3 as sql
@@ -16,10 +16,6 @@ TOKEN = os.getenv('TOKEN')
 database_loc = 'amongus.db'
 
 bot = commands.Bot(command_prefix='!')
-
-def find_percentage(stats):
-    pass
-
 
 @bot.command(name='players', description='list of players in the database')
 async def list_players(ctx):
@@ -100,7 +96,9 @@ async def whosus(ctx):
 
     players = [name[0].title() for name in results]
     response = random.choice(players)
-    await ctx.send(response)
+    with open('options.txt') as f:
+        options = f.readlines()
+    await ctx.send(response + ' ' + random.choice(options).strip())
 
 
 @bot.command(name='upload_stats', description='reads a screenshot attached to feed the database with stats')
@@ -114,7 +112,9 @@ async def upload_stats(ctx):
             stats = process_stats(file_name)
             database_operation(ctx.author.id, ctx.author.name.lower(), stats)
             os.remove(file_name)
-            await ctx.send(f"I read {ctx.message.author.name}'s stats as {str(stats)}")
+            with open('tasks.txt') as f:
+                tasks = f.readlines()
+            await ctx.send(f"{ctx.message.author.name} {random.choice(tasks)}")
 
 @bot.command(name='wins', description='calculates sum of ways to win either imp/crew and finds % times you win. add imposter or crewmate as argument')
 async def win_rate(ctx, play_type):
@@ -163,4 +163,12 @@ async def kills_per_game(ctx):
         response += f'{k}: {v}\n'
     await ctx.send(response)
 
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandNotFound):
+        with open('errormsgs.txt') as f:
+            msgs = f.readlines()
+        r = f"{random.choice(msgs)}, find commands by running `!help`"
+        await ctx.send(r)
+    raise error
 bot.run(TOKEN)

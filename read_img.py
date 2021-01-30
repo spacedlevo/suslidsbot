@@ -32,7 +32,6 @@ def process_stats(file):
     image = cv2.imread(file)
     output_img = erosion_img(1, binary_img(erosion_img(1, resize_img(image, 200))))
     output = image_to_string(output_img, config="--psm 6")
-    print(output)
     """cv2.imshow('output', output_img)
     cv2.waitKey()"""
 
@@ -61,6 +60,7 @@ def process_stats(file):
         }
         """for k, v in stats.items():
             print(f'{k}: {" " * (25 - (len(k)))}{v}')"""
+        print("Stats Read Successful")
     else:
         print("incorrect")
         stats = None
