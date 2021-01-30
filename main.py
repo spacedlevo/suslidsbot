@@ -42,7 +42,7 @@ async def leaderboards(ctx, stat):
     data = {}
     for i in results:
         data[i[0].title()] = str(i[1])
-    print(data)
+    print(f"{ctx.author} called {stat} leaderboard")
     for k, v in data.items():
         response += f'{k}: {v}\n'
 
@@ -70,7 +70,7 @@ async def percent(ctx, stat='imp_kills'):
     for i in results:
         data[i[0].title()] = round((i[1] / i[2]) * 100)
     data = {key: val for key, val in sorted(data.items(), key = lambda ele: ele[1], reverse = True)} 
-    print(data)
+    print(f"{ctx.message.author} called % for {stat}")
     for k, v in data.items():
         response += f'{k}: {v}%\n'
 
@@ -105,16 +105,20 @@ async def whosus(ctx):
 async def upload_stats(ctx):
     if ctx.message.attachments:
         print(f"Got attachment: {ctx.message.attachments}")
-        print(ctx.author.id)
         for attachment in ctx.message.attachments:
             file_name = f"temp/{ctx.message.author.name}_{attachment.filename}"
             await attachment.save(file_name)
             stats = process_stats(file_name)
-            database_operation(ctx.author.id, ctx.author.name.lower(), stats)
+            if stats != None:
+                database_operation(ctx.author.id, ctx.author.name.lower(), stats)
+                print(f"{ctx.author} stats added")
+            else:
+                print(f"{ctx.author} stats failed")
             os.remove(file_name)
-            with open('tasks.txt') as f:
-                tasks = f.readlines()
-            await ctx.send(f"{ctx.message.author.name} {random.choice(tasks)}")
+        
+        with open('tasks.txt') as f:
+            tasks = f.readlines()
+        await ctx.send(f"{ctx.message.author.name} {random.choice(tasks)}... Task Complete!")
 
 @bot.command(name='wins', description='calculates sum of ways to win either imp/crew and finds % times you win. add imposter or crewmate as argument')
 async def win_rate(ctx, play_type):

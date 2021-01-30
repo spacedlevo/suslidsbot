@@ -60,7 +60,6 @@ def process_stats(file):
         }
         """for k, v in stats.items():
             print(f'{k}: {" " * (25 - (len(k)))}{v}')"""
-        print("Stats Read Successful")
     else:
         print("incorrect")
         stats = None
