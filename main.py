@@ -5,7 +5,7 @@ import sqlite3 as sql
 import random
 
 from read_img import process_stats
-from database_commands import database_operation
+from database_commands import database_operation, post_stats
 
 import discord
 from discord.ext import commands
@@ -40,6 +40,7 @@ async def leaderboards(ctx, stat):
                         ''')
         results = cur.fetchall()
     data = {}
+    response = ''
     for i in results:
         data[i[0].title()] = str(i[1])
     print(f"{ctx.author} called {stat} leaderboard")
@@ -118,7 +119,7 @@ async def upload_stats(ctx):
         
         with open('tasks.txt') as f:
             tasks = f.readlines()
-        await ctx.send(f"{ctx.message.author.name} {random.choice(tasks)}... Task Complete!")
+        await ctx.send(f"{ctx.message.author.name} {random.choice(tasks).strip()}... Task Complete!")
 
 @bot.command(name='wins', description='calculates sum of ways to win either imp/crew and finds % times you win. add imposter or crewmate as argument')
 async def win_rate(ctx, play_type):
@@ -167,12 +168,49 @@ async def kills_per_game(ctx):
         response += f'{k}: {v}\n'
     await ctx.send(response)
 
+@bot.command(name="append_stats")
+async def append_stats(ctx):
+    with sql.connect(database_loc) as db:
+        cur = db.cursor()
+        cur.execute(''' SELECT * FROM stats WHERE player_id = ?''', (ctx.author.id,))
+        q = cur.fetchone()
+    if ctx.message.attachments:
+        print(f"Got attachment: {ctx.message.attachments}")
+        for attachment in ctx.message.attachments:
+            file_name = f"temp/{ctx.message.author.name}_{attachment.filename}"
+            await attachment.save(file_name)
+            stats = process_stats(file_name)
+            stats["Bodies Reported"] += q[0]
+            stats["Emergencies Called"] += q[1]
+            stats["Tasks Completed"] += q[2]
+            stats["All Tasks Completed"] += q[3]
+            stats["Sabotages Fixed"]+= q[4]
+            stats["Impostor Kills"]+= q[5]
+            stats["Times Murdered"]+= q[6]
+            stats["Times Ejected"]+= q[7]
+            stats["Crewmate Streak"]+= q[8]
+            stats["Times Impostor"]+= q[9]
+            stats["Times Crewmate"]+= q[10]
+            stats["Games Started"]+= q[11]
+            stats["Games Finished"]+= q[12]
+            stats["Impostor Vote Wins"]+= q[13]
+            stats["Impostor Kill Wins"]+= q[14]
+            stats["Impostor Sabotage Wins"]+= q[15]
+            stats["Crewmate Vote Wins"]+= q[16]
+            stats["Crewmate Task Wins"]+= q[17]
+
+    post_stats(ctx.author.id, stats)
+    os.remove(file_name)
+        
+
+
+
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound):
         with open('errormsgs.txt') as f:
             msgs = f.readlines()
-        r = f"{random.choice(msgs)}, find commands by running `!help`"
+        r = f"{random.choice(msgs).strip()}, find commands by running `!help`"
         await ctx.send(r)
     raise error
 bot.run(TOKEN)
