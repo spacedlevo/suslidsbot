@@ -161,6 +161,7 @@ pip-selfcheck.json
 *.mdb
 *.pdb
 *.sqlite3
+*.csv
 
 # End of https://www.toptal.com/developers/gitignore/api/python,virtualenv
 

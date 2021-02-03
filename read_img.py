@@ -34,7 +34,6 @@ def process_stats(file):
     output = image_to_string(output_img, config="--psm 6")
     """cv2.imshow('output', output_img)
     cv2.waitKey()"""
-
     pattern = re.compile(r"\s\d+\n")
     matches = re.findall(pattern, output)
     if len(matches) == 18:

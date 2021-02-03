@@ -10,12 +10,48 @@ from database_commands import database_operation, post_stats
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
+import csv
+intents = discord.Intents.default()
+intents.members = True
 
 load_dotenv()
 TOKEN = os.getenv('TOKEN')
 database_loc = 'amongus.db'
 
-bot = commands.Bot(command_prefix='!')
+def read_wilk_data():
+    with open('data.csv') as csvfile:
+        csv_reader = csv.reader(csvfile)
+        wilk_data = [i for i in csv_reader]
+        return wilk_data[-1]
+
+def add_wilk_data(stats, wilk_base):
+    stats["Bodies Reported"] += int(wilk_base[0])
+    stats["Emergencies Called"] += int(wilk_base[1])
+    stats["Tasks Completed"] += int(wilk_base[2])
+    stats["All Tasks Completed"] += int(wilk_base[3])
+    stats["Sabotages Fixed"]+= int(wilk_base[4])
+    stats["Impostor Kills"]+= int(wilk_base[5])
+    stats["Times Murdered"]+= int(wilk_base[6])
+    stats["Times Ejected"]+= int(wilk_base[7])
+    stats["Crewmate Streak"]+= int(wilk_base[8])
+    stats["Times Impostor"]+= int(wilk_base[9])
+    stats["Times Crewmate"]+= int(wilk_base[10])
+    stats["Games Started"]+= int(wilk_base[11])
+    stats["Games Finished"]+= int(wilk_base[12])
+    stats["Impostor Vote Wins"]+= int(wilk_base[13])
+    stats["Impostor Kill Wins"]+= int(wilk_base[14])
+    stats["Impostor Sabotage Wins"]+= int(wilk_base[15])
+    stats["Crewmate Vote Wins"]+= int(wilk_base[16])
+    stats["Crewmate Task Wins"]+= int(wilk_base[17])
+    return stats
+
+
+
+bot = commands.Bot(command_prefix='!', intents=intents)
+@bot.event
+async def on_ready():
+    print("Logged In")
+
 
 @bot.command(name='players', description='list of players in the database')
 async def list_players(ctx):
@@ -111,6 +147,10 @@ async def upload_stats(ctx):
             await attachment.save(file_name)
             stats = process_stats(file_name)
             if stats != None:
+                if ctx.author.id == 720333096922120313:
+                    wilk_base = read_wilk_data()
+                    stats = add_wilk_data(stats, wilk_base)
+                    await ctx.send('LaWilk is a special case')
                 database_operation(ctx.author.id, ctx.author.name.lower(), stats)
                 print(f"{ctx.author} stats added")
             else:
@@ -168,41 +208,82 @@ async def kills_per_game(ctx):
         response += f'{k}: {v}\n'
     await ctx.send(response)
 
-@bot.command(name="append_stats")
-async def append_stats(ctx):
-    with sql.connect(database_loc) as db:
-        cur = db.cursor()
-        cur.execute(''' SELECT * FROM stats WHERE player_id = ?''', (ctx.author.id,))
-        q = cur.fetchone()
-    if ctx.message.attachments:
-        print(f"Got attachment: {ctx.message.attachments}")
-        for attachment in ctx.message.attachments:
-            file_name = f"temp/{ctx.message.author.name}_{attachment.filename}"
-            await attachment.save(file_name)
-            stats = process_stats(file_name)
-            stats["Bodies Reported"] += q[0]
-            stats["Emergencies Called"] += q[1]
-            stats["Tasks Completed"] += q[2]
-            stats["All Tasks Completed"] += q[3]
-            stats["Sabotages Fixed"]+= q[4]
-            stats["Impostor Kills"]+= q[5]
-            stats["Times Murdered"]+= q[6]
-            stats["Times Ejected"]+= q[7]
-            stats["Crewmate Streak"]+= q[8]
-            stats["Times Impostor"]+= q[9]
-            stats["Times Crewmate"]+= q[10]
-            stats["Games Started"]+= q[11]
-            stats["Games Finished"]+= q[12]
-            stats["Impostor Vote Wins"]+= q[13]
-            stats["Impostor Kill Wins"]+= q[14]
-            stats["Impostor Sabotage Wins"]+= q[15]
-            stats["Crewmate Vote Wins"]+= q[16]
-            stats["Crewmate Task Wins"]+= q[17]
+# @bot.command(name="append_stats")
+# async def append_stats(ctx):
+#     with sql.connect(database_loc) as db:
+#         cur = db.cursor()
+#         cur.execute(''' SELECT * FROM stats WHERE player_id = ?''', (ctx.author.id,))
+#         q = cur.fetchone()
+#         if ctx.message.attachments:
+#             print(f"Got attachment: {ctx.message.attachments}")
+#             for attachment in ctx.message.attachments:
+#                 file_name = f"temp/{ctx.message.author.name}_{attachment.filename}"
+#                 await attachment.save(file_name)
+#                 stats = process_stats(file_name)
+#                 stats["Bodies Reported"] += q[0]
+#                 stats["Emergencies Called"] += q[1]
+#                 stats["Tasks Completed"] += q[2]
+#                 stats["All Tasks Completed"] += q[3]
+#                 stats["Sabotages Fixed"]+= q[4]
+#                 stats["Impostor Kills"]+= q[5]
+#                 stats["Times Murdered"]+= q[6]
+#                 stats["Times Ejected"]+= q[7]
+#                 stats["Crewmate Streak"]+= q[8]
+#                 stats["Times Impostor"]+= q[9]
+#                 stats["Times Crewmate"]+= q[10]
+#                 stats["Games Started"]+= q[11]
+#                 stats["Games Finished"]+= q[12]
+#                 stats["Impostor Vote Wins"]+= q[13]
+#                 stats["Impostor Kill Wins"]+= q[14]
+#                 stats["Impostor Sabotage Wins"]+= q[15]
+#                 stats["Crewmate Vote Wins"]+= q[16]
+#                 stats["Crewmate Task Wins"]+= q[17]
+#             print(stats)
 
-    post_stats(ctx.author.id, stats)
-    os.remove(file_name)
-        
+#             cur.execute(
+#                 f'''
+#                 INSERT OR REPLACE INTO stats VALUES ({"?," * 18}?)
+#                 ''',
+#                 (
+#                 stats["Bodies Reported"],
+#                 stats["Emergencies Called"],
+#                 stats["Tasks Completed"],
+#                 stats["All Tasks Completed"],
+#                 stats["Sabotages Fixed"],
+#                 stats["Impostor Kills"],
+#                 stats["Times Murdered"],
+#                 stats["Times Ejected"],
+#                 stats["Crewmate Streak"],
+#                 stats["Times Impostor"],
+#                 stats["Times Crewmate"],
+#                 stats["Games Started"],
+#                 stats["Games Finished"],
+#                 stats["Impostor Vote Wins"],
+#                 stats["Impostor Kill Wins"],
+#                 stats["Impostor Sabotage Wins"],
+#                 stats["Crewmate Vote Wins"],
+#                 stats["Crewmate Task Wins"],
+#                 ctx.author.id
+#                 )
+#             )
 
+    # os.remove(file_name)
+    # with open('tasks.txt') as f:
+    #     tasks = f.readlines()
+    # await ctx.send(f"{ctx.message.author.name} {random.choice(tasks).strip()}... Task Complete!")
+
+@bot.command(name="throw_sus")
+async def throw_sus(ctx):
+    print(f"{ctx.author.name} called throw_sus" )
+    members = ctx.guild.members
+    members_in_voice = [member.name for member in members if member.voice]
+    if len(members_in_voice) > 1:            
+        random_choices = random.sample(members_in_voice, k=2)
+        print(random_choices)
+        string = f'{random_choices[0]} and {random_choices[1]} are defo the imposters! Kick em!'
+        await ctx.send(string)
+    else:
+        await ctx.send("Not enough data to decide")
 
 
 @bot.event
