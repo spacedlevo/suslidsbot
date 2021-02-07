@@ -8,14 +8,17 @@ from read_img import process_stats
 from database_commands import database_operation, post_stats
 
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from dotenv import load_dotenv
 import csv
+
 intents = discord.Intents.default()
 intents.members = True
 
 load_dotenv()
 TOKEN = os.getenv('TOKEN')
+USER_TO_SEND = int(os.getenv('USER_TO_SEND'))
+GUILD = int(os.getenv('GUILD'))
 database_loc = 'amongus.db'
 
 def read_wilk_data():
@@ -47,10 +50,33 @@ def add_wilk_data(stats, wilk_base):
 
 
 
+# @tasks.loop(minutes=10)
+# async def some_task():
+#   # Do some stuff that uses the cache, like get_user
+
+# @some_task.before_loop
+# async def before_some_task():
+#   await bot.wait_until_ready()
+
 bot = commands.Bot(command_prefix='!', intents=intents)
 @bot.event
 async def on_ready():
     print("Logged In")
+    change_status.start()
+
+# @tasks.loop(hours=102)
+# async def send_random_msg():
+#     jay = bot.get_user(476510689129660416)
+    
+#     msgs = [
+#         "Those pants again? Really?",
+#         f"{jay.mention}, I have been watching you sleep"
+#     ]
+#     await bot.get_channel(804024552631828530).send(random.choice(msgs)) 
+
+# @send_random_msg.before_loop()
+# async def before_task():
+#     await bot.wait_until_ready()
 
 
 @bot.command(name='players', description='list of players in the database')
@@ -140,6 +166,10 @@ async def whosus(ctx):
 
 @bot.command(name='upload_stats', description='reads a screenshot attached to feed the database with stats')
 async def upload_stats(ctx):
+    players_roles = [role.id for role in ctx.author.roles]
+    required_server = bot.get_guild(id=GUILD)
+    role = discord.utils.get(required_server.roles, id=807475316477132871)
+    print(role)
     if ctx.message.attachments:
         print(f"Got attachment: {ctx.message.attachments}")
         for attachment in ctx.message.attachments:
@@ -147,15 +177,20 @@ async def upload_stats(ctx):
             await attachment.save(file_name)
             stats = process_stats(file_name)
             if stats != None:
-                if ctx.author.id == 720333096922120313:
+                if ctx.author.id == USER_TO_SEND:
                     wilk_base = read_wilk_data()
                     stats = add_wilk_data(stats, wilk_base)
                     await ctx.send('LaWilk is a special case')
                 database_operation(ctx.author.id, ctx.author.name.lower(), stats)
                 print(f"{ctx.author} stats added")
+                if 807475316477132871 not in players_roles:
+                    await ctx.author.add_roles(role)
+                    await ctx.author.send(f"{ctx.author.mention} You have been added to the Crewmates")
             else:
                 print(f"{ctx.author} stats failed")
             os.remove(file_name)
+        
+
         
         with open('tasks.txt') as f:
             tasks = f.readlines()
@@ -283,7 +318,43 @@ async def throw_sus(ctx):
         string = f'{random_choices[0]} and {random_choices[1]} are defo the imposters! Kick em!'
         await ctx.send(string)
     else:
-        await ctx.send("Not enough data to decide")
+        await ctx.send("This meeting has been called illegally!")
+
+@tasks.loop(seconds=20)
+async def change_status():
+    with open('tasks.txt') as f:
+        tasks = f.readlines()
+    tasks.append("Watching Jay Sleep")
+    msg = f"Among Us: {random.choice(tasks).title()}"
+    await bot.change_presence(activity=discord.Game(name=msg))
+
+
+@bot.command(name="add_msg")
+async def add_msg(ctx, *, args):
+    #Check Roles:
+    #target the user manually to get his roles in the event of a DM
+    required_server = bot.get_guild(id=GUILD)
+    target_user = discord.utils.get(required_server.members, id=ctx.author.id)
+
+    role_id = 807475316477132871
+    if role_id in [i.id for i in target_user.roles]:
+        if args.startswith('sus'):
+            doc = 'options.txt'
+        elif args.startswith('error'):
+            doc = 'errormsgs.txt'
+        else:
+            await ctx.send('startwith either sus or error')
+        cut_string = args.split(' ', 1)
+        write_string = cut_string[1] + '\n'
+
+        with open(doc, "a") as f:
+            f.write(write_string)
+        print(f"{ctx.author.name} sent a message")
+        await ctx.send('Added!')
+   
+    else:
+        await ctx.send('You need Crewmate Role to post this!')
+
 
 
 @bot.event
@@ -294,4 +365,6 @@ async def on_command_error(ctx, error):
         r = f"{random.choice(msgs).strip()}, find commands by running `!help`"
         await ctx.send(r)
     raise error
+
+
 bot.run(TOKEN)
