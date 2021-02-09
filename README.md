@@ -10,7 +10,7 @@ Using OpenCV and PyTesseract, screenshots can be read and data save posted to a 
 
 Will pick a player from the database and a random sus sentence. These sentences can be user submitted. I have set it up that those who submit there stats to the database are given a role of Crewmate, and only Crewmates can add to the sus messages. 
 
-## !leadeboard & !percent
+## !leaderboard & !percent
 
 Will create leaderboards from stats stored in the database. The !percent will present these as a per hundred game basis. 
 
