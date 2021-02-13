@@ -158,10 +158,10 @@ async def whosus(ctx):
         results = cur.fetchall()
 
     players = [name[0].title() for name in results]
-    response = random.choice(players)
-    with open('options.txt') as f:
+    player = random.choice(players)
+    with open('valentines_day.txt') as f:
         options = f.readlines()
-    await ctx.send(response + ' ' + random.choice(options).strip())
+    await ctx.send(f"{player} {random.choice(options).strip()} :heartpulse:")
 
 
 @bot.command(name='upload_stats', description='reads a screenshot attached to feed the database with stats')
@@ -243,70 +243,6 @@ async def kills_per_game(ctx):
         response += f'{k}: {v}\n'
     await ctx.send(response)
 
-# @bot.command(name="append_stats")
-# async def append_stats(ctx):
-#     with sql.connect(database_loc) as db:
-#         cur = db.cursor()
-#         cur.execute(''' SELECT * FROM stats WHERE player_id = ?''', (ctx.author.id,))
-#         q = cur.fetchone()
-#         if ctx.message.attachments:
-#             print(f"Got attachment: {ctx.message.attachments}")
-#             for attachment in ctx.message.attachments:
-#                 file_name = f"temp/{ctx.message.author.name}_{attachment.filename}"
-#                 await attachment.save(file_name)
-#                 stats = process_stats(file_name)
-#                 stats["Bodies Reported"] += q[0]
-#                 stats["Emergencies Called"] += q[1]
-#                 stats["Tasks Completed"] += q[2]
-#                 stats["All Tasks Completed"] += q[3]
-#                 stats["Sabotages Fixed"]+= q[4]
-#                 stats["Impostor Kills"]+= q[5]
-#                 stats["Times Murdered"]+= q[6]
-#                 stats["Times Ejected"]+= q[7]
-#                 stats["Crewmate Streak"]+= q[8]
-#                 stats["Times Impostor"]+= q[9]
-#                 stats["Times Crewmate"]+= q[10]
-#                 stats["Games Started"]+= q[11]
-#                 stats["Games Finished"]+= q[12]
-#                 stats["Impostor Vote Wins"]+= q[13]
-#                 stats["Impostor Kill Wins"]+= q[14]
-#                 stats["Impostor Sabotage Wins"]+= q[15]
-#                 stats["Crewmate Vote Wins"]+= q[16]
-#                 stats["Crewmate Task Wins"]+= q[17]
-#             print(stats)
-
-#             cur.execute(
-#                 f'''
-#                 INSERT OR REPLACE INTO stats VALUES ({"?," * 18}?)
-#                 ''',
-#                 (
-#                 stats["Bodies Reported"],
-#                 stats["Emergencies Called"],
-#                 stats["Tasks Completed"],
-#                 stats["All Tasks Completed"],
-#                 stats["Sabotages Fixed"],
-#                 stats["Impostor Kills"],
-#                 stats["Times Murdered"],
-#                 stats["Times Ejected"],
-#                 stats["Crewmate Streak"],
-#                 stats["Times Impostor"],
-#                 stats["Times Crewmate"],
-#                 stats["Games Started"],
-#                 stats["Games Finished"],
-#                 stats["Impostor Vote Wins"],
-#                 stats["Impostor Kill Wins"],
-#                 stats["Impostor Sabotage Wins"],
-#                 stats["Crewmate Vote Wins"],
-#                 stats["Crewmate Task Wins"],
-#                 ctx.author.id
-#                 )
-#             )
-
-    # os.remove(file_name)
-    # with open('tasks.txt') as f:
-    #     tasks = f.readlines()
-    # await ctx.send(f"{ctx.message.author.name} {random.choice(tasks).strip()}... Task Complete!")
-
 @bot.command(name="throw_sus")
 async def throw_sus(ctx):
     print(f"{ctx.author.name} called throw_sus" )
@@ -342,18 +278,26 @@ async def add_msg(ctx, *, args):
             doc = 'options.txt'
         elif args.startswith('error'):
             doc = 'errormsgs.txt'
+        elif args.startswith('val'):
+            doc = 'valentines_day.txt'
         else:
-            await ctx.send('startwith either sus or error')
+            await ctx.send('startwith either sus|val|error')
         cut_string = args.split(' ', 1)
         write_string = cut_string[1] + '\n'
 
         with open(doc, "a") as f:
             f.write(write_string)
         print(f"{ctx.author.name} sent a message")
-        await ctx.send('Added!')
+        await ctx.send('Added! If you want to add Valentines messages. Use `val` option')
    
     else:
         await ctx.send('You need Crewmate Role to post this!')
+
+
+@bot.command(name="good_bot")
+async def thanks(ctx):
+    await ctx.send(f"Why, thanks {ctx.author.mention} :dog: :robot:")
+
 
 
 
