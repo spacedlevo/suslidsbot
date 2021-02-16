@@ -49,34 +49,11 @@ def add_wilk_data(stats, wilk_base):
     return stats
 
 
-
-# @tasks.loop(minutes=10)
-# async def some_task():
-#   # Do some stuff that uses the cache, like get_user
-
-# @some_task.before_loop
-# async def before_some_task():
-#   await bot.wait_until_ready()
-
 bot = commands.Bot(command_prefix='!', intents=intents)
 @bot.event
 async def on_ready():
     print("Logged In")
     change_status.start()
-
-# @tasks.loop(hours=102)
-# async def send_random_msg():
-#     jay = bot.get_user(476510689129660416)
-    
-#     msgs = [
-#         "Those pants again? Really?",
-#         f"{jay.mention}, I have been watching you sleep"
-#     ]
-#     await bot.get_channel(804024552631828530).send(random.choice(msgs)) 
-
-# @send_random_msg.before_loop()
-# async def before_task():
-#     await bot.wait_until_ready()
 
 
 @bot.command(name='players', description='list of players in the database')
@@ -159,9 +136,9 @@ async def whosus(ctx):
 
     players = [name[0].title() for name in results]
     player = random.choice(players)
-    with open('valentines_day.txt') as f:
+    with open('options.txt') as f:
         options = f.readlines()
-    await ctx.send(f"{player} {random.choice(options).strip()} :heartpulse:")
+    await ctx.send(f"{player} {random.choice(options).strip()}")
 
 
 @bot.command(name='upload_stats', description='reads a screenshot attached to feed the database with stats')
@@ -278,17 +255,17 @@ async def add_msg(ctx, *, args):
             doc = 'options.txt'
         elif args.startswith('error'):
             doc = 'errormsgs.txt'
-        elif args.startswith('val'):
-            doc = 'valentines_day.txt'
+        elif args.startswith('easter'):
+            doc = 'easter.txt'
         else:
-            await ctx.send('startwith either sus|val|error')
+            await ctx.send('startwith either sus|easter|error')
         cut_string = args.split(' ', 1)
         write_string = cut_string[1] + '\n'
 
         with open(doc, "a") as f:
             f.write(write_string)
         print(f"{ctx.author.name} sent a message")
-        await ctx.send('Added! If you want to add Valentines messages. Use `val` option')
+        await ctx.send('Added! If you want to add Easter messages. Use `easter` option')
    
     else:
         await ctx.send('You need Crewmate Role to post this!')
