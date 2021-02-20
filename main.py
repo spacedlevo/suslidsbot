@@ -11,6 +11,8 @@ import discord
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
 import csv
+import chat_exporter
+import io
 
 intents = discord.Intents.default()
 intents.members = True
@@ -25,7 +27,7 @@ def read_wilk_data():
     with open('data.csv') as csvfile:
         csv_reader = csv.reader(csvfile)
         wilk_data = [i for i in csv_reader]
-        return wilk_data[-1]
+        return wilk_data[1]
 
 def add_wilk_data(stats, wilk_base):
     stats["Bodies Reported"] += int(wilk_base[0])
@@ -36,7 +38,7 @@ def add_wilk_data(stats, wilk_base):
     stats["Impostor Kills"]+= int(wilk_base[5])
     stats["Times Murdered"]+= int(wilk_base[6])
     stats["Times Ejected"]+= int(wilk_base[7])
-    stats["Crewmate Streak"]+= int(wilk_base[8])
+    # stats["Crewmate Streak"]+= int(wilk_base[8])
     stats["Times Impostor"]+= int(wilk_base[9])
     stats["Times Crewmate"]+= int(wilk_base[10])
     stats["Games Started"]+= int(wilk_base[11])
@@ -54,6 +56,7 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 async def on_ready():
     print("Logged In")
     change_status.start()
+    chat_exporter.init_exporter(bot)
 
 
 @bot.command(name='players', description='list of players in the database')
@@ -64,7 +67,6 @@ async def list_players(ctx):
         results = cur.fetchall()
 
     players = [name[0].title() for name in results]
-    print(players)
     response = ' \n'.join(players)
     await ctx.send(response)
 
@@ -136,9 +138,14 @@ async def whosus(ctx):
 
     players = [name[0].title() for name in results]
     player = random.choice(players)
-    with open('options.txt') as f:
-        options = f.readlines()
-    await ctx.send(f"{player} {random.choice(options).strip()}")
+    with sql.connect(database_loc) as db:
+        cur = db.cursor()
+        cur.execute(''' SELECT id, message FROM messages WHERE category  = 1 ''' )
+        options = cur.fetchall()
+        message = random.choice(options)
+        await ctx.send(f"{player} {message[1]}")
+        cur.execute(''' UPDATE messages SET use_count = use_count + 1 WHERE id = ? ''', (message[0],))
+
 
 
 @bot.command(name='upload_stats', description='reads a screenshot attached to feed the database with stats')
@@ -146,9 +153,7 @@ async def upload_stats(ctx):
     players_roles = [role.id for role in ctx.author.roles]
     required_server = bot.get_guild(id=GUILD)
     role = discord.utils.get(required_server.roles, id=807475316477132871)
-    print(role)
     if ctx.message.attachments:
-        print(f"Got attachment: {ctx.message.attachments}")
         for attachment in ctx.message.attachments:
             file_name = f"temp/{ctx.message.author.name}_{attachment.filename}"
             await attachment.save(file_name)
@@ -190,12 +195,11 @@ async def win_rate(ctx, play_type):
     data = {}
     for i in r:
         data[i[0].title()] =  round((sum(i[1:-1]) / i[-1]) * 100)
-        print(i)
         data = {key: val for key, val in sorted(data.items(), key = lambda ele: ele[1], reverse = True)} 
-    print(data)
     response = ''
     for k, v in data.items():
         response += f'{k}: {v}%\n'
+    print(f"{ctx.author} called wins")
     await ctx.send(response)
 
 @bot.command(name="kills_per_game", description="Leaderboard of how many kills per imp game")
@@ -212,9 +216,7 @@ async def kills_per_game(ctx):
 
     for i in r:
         data[i[0].title()] =  round(i[1] / i[2],1)
-        print(i)
         data = {key: val for key, val in sorted(data.items(), key = lambda ele: ele[1], reverse = True)} 
-    print(data)
     response = ''
     for k, v in data.items():
         response += f'{k}: {v}\n'
@@ -227,7 +229,6 @@ async def throw_sus(ctx):
     members_in_voice = [member.name for member in members if member.voice]
     if len(members_in_voice) > 1:            
         random_choices = random.sample(members_in_voice, k=2)
-        print(random_choices)
         string = f'{random_choices[0]} and {random_choices[1]} are defo the imposters! Kick em!'
         await ctx.send(string)
     else:
@@ -251,21 +252,24 @@ async def add_msg(ctx, *, args):
 
     role_id = 807475316477132871
     if role_id in [i.id for i in target_user.roles]:
-        if args.startswith('sus'):
-            doc = 'options.txt'
-        elif args.startswith('error'):
-            doc = 'errormsgs.txt'
-        elif args.startswith('easter'):
-            doc = 'easter.txt'
-        else:
-            await ctx.send('startwith either sus|easter|error')
         cut_string = args.split(' ', 1)
-        write_string = cut_string[1] + '\n'
+        category = cut_string[0]
+        write_string = cut_string[1]
 
-        with open(doc, "a") as f:
-            f.write(write_string)
-        print(f"{ctx.author.name} sent a message")
-        await ctx.send('Added! If you want to add Easter messages. Use `easter` option')
+        with sql.connect(database_loc) as db:
+            cur = db.cursor()
+            cur.execute(''' SELECT * FROM categories WHERE name = ?''',(category,))
+            cat = cur.fetchone()
+            if cat != None:
+                cur.execute(''' INSERT INTO messages (message, added_by, category) VALUES (?,?,?) ''',
+                (write_string, ctx.author.id, cat[0]))
+                print(f"{ctx.author.name} sent a message")
+                await ctx.send('Added! If you want to add Easter messages. Use `easter` option')
+            else:
+                cur.execute(''' SELECT name FROM categories ''')
+                names = [i[0] for i in cur.fetchall()]
+                names_str = ', '.join(names)
+                await ctx.send(f"The categories you can add to are: {names_str}")
    
     else:
         await ctx.send('You need Crewmate Role to post this!')
@@ -274,6 +278,24 @@ async def add_msg(ctx, *, args):
 @bot.command(name="good_bot")
 async def thanks(ctx):
     await ctx.send(f"Why, thanks {ctx.author.mention} :dog: :robot:")
+
+
+@bot.command(name="export")
+async def save(ctx, limit=7000):
+    if ctx.author.guild_permissions.administrator == True:
+        messages = await ctx.channel.history(limit=limit).flatten()
+        transcript = await chat_exporter.raw_export(ctx.channel, messages)
+
+        if transcript is None:
+            return
+
+        transcript_file = discord.File(io.BytesIO(transcript.encode()),
+                                    filename=f"transcript-{ctx.channel.name}.html")
+
+        await ctx.author.send(file=transcript_file)
+    else:
+        ctx.send("You have no authority here, Jackie Weaver")
+
 
 
 
