@@ -296,10 +296,6 @@ async def save(ctx, limit=7000):
     else:
         ctx.send("You have no authority here, Jackie Weaver")
 
-
-
-
-
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound):
