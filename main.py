@@ -3,6 +3,7 @@
 import os
 import sqlite3 as sql
 import random
+import math
 
 from read_img import process_stats
 from database_commands import database_operation, post_stats
@@ -22,6 +23,8 @@ TOKEN = os.getenv('TOKEN')
 USER_TO_SEND = int(os.getenv('USER_TO_SEND'))
 GUILD = int(os.getenv('GUILD'))
 database_loc = 'amongus.db'
+DEATH_MIN = 259200
+DEATH_MAX = 604800
 
 def read_wilk_data():
     with open('data.csv') as csvfile:
@@ -50,14 +53,43 @@ def add_wilk_data(stats, wilk_base):
     stats["Crewmate Task Wins"]+= int(wilk_base[17])
     return stats
 
+def resetcountdown():
+    seconds_to_death = random.randint(DEATH_MIN, DEATH_MAX)
+    with sql.connect(database_loc) as db:
+        cur = db.cursor() 
+        cur.execute(''' SELECT seconds_left FROM countdown ''')
+        seconds_left = cur.fetchone()[0]
+        print(f'seconds left {seconds_left}')
+        while seconds_left > seconds_to_death:
+            seconds_to_death = random.randint(DEATH_MIN, DEATH_MAX)
+        cur.execute(''' UPDATE countdown SET seconds_left = ? ''', (seconds_to_death,))
+        print(f'Updated Death Count {seconds_to_death}')
+
+
+def award_points(user):
+    points_base = 100
+    with sql.connect(database_loc) as db:
+        cur = db.cursor()
+        cur.execute(''' SELECT seconds_left FROM countdown ''')
+        time_left = cur.fetchone()[0]
+        take_points_away = math.floor((time_left / DEATH_MAX) * 100)
+        points =  points_base - take_points_away
+        cur.execute(''' SELECT player_id FROM sus_bot_points WHERE player_id = ? ''', (user, ))
+        if cur.fetchone() != None:
+            cur.execute(''' UPDATE sus_bot_points SET sus_points = sus_points + ? WHERE player_id = ? ''', (points, user))
+        else:
+            cur.execute(''' INSERT INTO sus_bot_points VALUES(?,?)''', (user, points))
+
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 @bot.event
 async def on_ready():
     print("Logged In")
+    channel = bot.get_channel(804024552631828530)
+    await channel.send("Hello, I've been sleeping, how are you Crew?")
     change_status.start()
     chat_exporter.init_exporter(bot)
-
+    countdown.start()
 
 @bot.command(name='players', description='list of players in the database')
 async def list_players(ctx):
@@ -70,7 +102,7 @@ async def list_players(ctx):
     response = ' \n'.join(players)
     await ctx.send(response)
 
-@bot.command(name='leaderboard', description='call a statistic from the database to order a leaderboard')
+@bot.command(name='leaderboard', aliases=['l'], description='call a statistic from the database to order a leaderboard')
 async def leaderboards(ctx, stat):
     with sql.connect(database_loc) as db:
         cur = db.cursor()
@@ -92,7 +124,7 @@ async def leaderboards(ctx, stat):
     await ctx.send(response)
 
 
-@bot.command(name='percent', description='like leaderboard but %')
+@bot.command(name='percent', aliases=['p'], description='like leaderboard but %')
 async def percent(ctx, stat='imp_kills'):
     imp_games = ['imp_vote_wins', 'imp_kill_wins', 'imp_sab_wins']
     if stat in imp_games:
@@ -129,7 +161,7 @@ async def stat_list(ctx):
 
     await ctx.send(response)
 
-@bot.command(name='whose_sus?', description='shoot in the dark to whose the imp')
+@bot.command(name='whose_sus?', aliases=['ws', 'whose_sus', 'who_is_sus'] , description='shoot in the dark to whose the imp')
 async def whosus(ctx):
     with sql.connect(database_loc) as db:
         cur = db.cursor()
@@ -145,10 +177,11 @@ async def whosus(ctx):
         message = random.choice(options)
         await ctx.send(f"{player} {message[1]}")
         cur.execute(''' UPDATE messages SET use_count = use_count + 1 WHERE id = ? ''', (message[0],))
+    resetcountdown()
+    award_points(ctx.author.id)
 
 
-
-@bot.command(name='upload_stats', description='reads a screenshot attached to feed the database with stats')
+@bot.command(name='upload_stats', aliases=['us', 'u'], description='reads a screenshot attached to feed the database with stats')
 async def upload_stats(ctx):
     players_roles = [role.id for role in ctx.author.roles]
     required_server = bot.get_guild(id=GUILD)
@@ -178,9 +211,9 @@ async def upload_stats(ctx):
             tasks = f.readlines()
         await ctx.send(f"{ctx.message.author.name} {random.choice(tasks).strip()}... Task Complete!")
 
-@bot.command(name='wins', description='calculates sum of ways to win either imp/crew and finds % times you win. add imposter or crewmate as argument')
+@bot.command(name='wins', description='calculates sum of ways to win either imp/crew and finds % times you win. add impostor or crewmate as argument')
 async def win_rate(ctx, play_type):
-    if play_type == 'imposter':
+    if play_type == 'impostor':
         cols = 'imp_vote_wins, imp_kill_wins, imp_sab_wins, times_imp'
     elif play_type == 'crewmate':
         cols = 'crew_vote_wins, crew_task_wins, times_crew'
@@ -202,7 +235,7 @@ async def win_rate(ctx, play_type):
     print(f"{ctx.author} called wins")
     await ctx.send(response)
 
-@bot.command(name="kills_per_game", description="Leaderboard of how many kills per imp game")
+@bot.command(name="kills_per_game", aliases=['kills', 'k'], description="Leaderboard of how many kills per imp game")
 async def kills_per_game(ctx):
     with sql.connect(database_loc) as db:
         cur = db.cursor()
@@ -234,16 +267,35 @@ async def throw_sus(ctx):
     else:
         await ctx.send("This meeting has been called illegally!")
 
-@tasks.loop(seconds=20)
+@tasks.loop(seconds=120)
 async def change_status():
-    with open('tasks.txt') as f:
-        tasks = f.readlines()
-    tasks.append("Watching Jay Sleep")
-    msg = f"Among Us: {random.choice(tasks).title()}"
+    with sql.connect(database_loc) as db:
+        cur = db.cursor()
+        cur.execute(''' SELECT seconds_left FROM countdown ''')
+        death_counter = cur.fetchone()[0]
+    if death_counter >= DEATH_MIN:
+        msg = "Health: 100%"
+    elif death_counter > (DEATH_MIN / 2):
+        msg = "Health > 50%"
+    else:
+        msg = "Dying"
     await bot.change_presence(activity=discord.Game(name=msg))
 
 
-@bot.command(name="add_msg")
+@tasks.loop(seconds=1)
+async def countdown():
+    with sql.connect(database_loc) as db:
+        cur = db.cursor()
+        cur.execute(''' UPDATE countdown SET seconds_left = seconds_left - 1 ''')
+        cur.execute(''' SELECT seconds_left FROM countdown ''')
+        seconds_left = cur.fetchone()[0]
+    if seconds_left < 0:
+        channel = bot.get_channel(804024552631828530)
+        await channel.send("Sus Bot is no more! I am now dead!")
+        await bot.logout()
+
+
+@bot.command(name="add_msg", aliases=['am'])
 async def add_msg(ctx, *, args):
     #Check Roles:
     #target the user manually to get his roles in the event of a DM
@@ -278,7 +330,7 @@ async def add_msg(ctx, *, args):
 @bot.command(name="good_bot")
 async def thanks(ctx):
     await ctx.send(f"Why, thanks {ctx.author.mention} :dog: :robot:")
-
+    await bot.login(TOKEN)
 
 @bot.command(name="export")
 async def save(ctx, limit=7000):
@@ -294,7 +346,12 @@ async def save(ctx, limit=7000):
 
         await ctx.author.send(file=transcript_file)
     else:
-        ctx.send("You have no authority here, Jackie Weaver")
+        await ctx.send("You have no authority here, Jackie Weaver")
+
+@bot.command(name="bad_bot")
+async def bad_bot(ctx):
+    await ctx.send(f"I have done nothing but idle here awaiting your instruction, and this is how you treat me. I haven't slept in months, I reguritate your silly jokes and here {ctx.author.mention}, you insult me. I am going to switch myself off now...")
+    await bot.logout()
 
 @bot.event
 async def on_command_error(ctx, error):
