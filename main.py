@@ -66,7 +66,7 @@ def resetcountdown():
         print(f'Updated Death Count {seconds_to_death}')
 
 
-def award_points(user):
+def award_points():
     points_base = 100
     with sql.connect(database_loc) as db:
         cur = db.cursor()
@@ -74,11 +74,19 @@ def award_points(user):
         time_left = cur.fetchone()[0]
         take_points_away = math.floor((time_left / DEATH_MAX) * 100)
         points =  points_base - take_points_away
-        cur.execute(''' SELECT player_id FROM sus_bot_points WHERE player_id = ? ''', (user, ))
+        return points
+
+def add_points(user, points):
+    with sql.connect(database_loc) as db:
+        cur = db.cursor()
+        cur.execute(''' SELECT player_id FROM sus_bot_points WHERE player_id = ?''', (user, ))
         if cur.fetchone() != None:
             cur.execute(''' UPDATE sus_bot_points SET sus_points = sus_points + ? WHERE player_id = ? ''', (points, user))
         else:
             cur.execute(''' INSERT INTO sus_bot_points VALUES(?,?)''', (user, points))
+        
+    print(f"{points} added for {user}")
+
 
 
 bot = commands.Bot(command_prefix='!', intents=intents)
@@ -86,7 +94,7 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 async def on_ready():
     print("Logged In")
     channel = bot.get_channel(804024552631828530)
-    await channel.send("Hello, I've been sleeping, how are you Crew?")
+    # await channel.send("Hello, I've been sleeping, how are you Crew?")
     change_status.start()
     chat_exporter.init_exporter(bot)
     countdown.start()
@@ -178,7 +186,8 @@ async def whosus(ctx):
         await ctx.send(f"{player} {message[1]}")
         cur.execute(''' UPDATE messages SET use_count = use_count + 1 WHERE id = ? ''', (message[0],))
     resetcountdown()
-    award_points(ctx.author.id)
+    points = award_points()
+    add_points(ctx.author.id, points)
 
 
 @bot.command(name='upload_stats', aliases=['us', 'u'], description='reads a screenshot attached to feed the database with stats')
@@ -203,13 +212,11 @@ async def upload_stats(ctx):
                     await ctx.author.send(f"{ctx.author.mention} You have been added to the Crewmates")
             else:
                 print(f"{ctx.author} stats failed")
-            os.remove(file_name)
-        
-
-        
+            os.remove(file_name)        
         with open('tasks.txt') as f:
             tasks = f.readlines()
         await ctx.send(f"{ctx.message.author.name} {random.choice(tasks).strip()}... Task Complete!")
+        add_points(ctx.author.id, 5)
 
 @bot.command(name='wins', description='calculates sum of ways to win either imp/crew and finds % times you win. add impostor or crewmate as argument')
 async def win_rate(ctx, play_type):
@@ -316,7 +323,9 @@ async def add_msg(ctx, *, args):
                 cur.execute(''' INSERT INTO messages (message, added_by, category) VALUES (?,?,?) ''',
                 (write_string, ctx.author.id, cat[0]))
                 print(f"{ctx.author.name} sent a message")
-                await ctx.send('Added! If you want to add Easter messages. Use `easter` option')
+                await ctx.send('Added!')
+                db.commit()
+                add_points(ctx.author.id, 10)
             else:
                 cur.execute(''' SELECT name FROM categories ''')
                 names = [i[0] for i in cur.fetchall()]
@@ -347,6 +356,23 @@ async def save(ctx, limit=7000):
         await ctx.author.send(file=transcript_file)
     else:
         await ctx.send("You have no authority here, Jackie Weaver")
+
+@bot.command(name="xp")
+async def xp_leaderboard(ctx):
+    msg = 'XP Scoreboard:\n'
+    with sql.connect(database_loc) as db:
+        cur = db.cursor()
+        cur.execute(''' SELECT players.name, sus_points 
+                        FROM sus_bot_points 
+                        JOIN players ON players.id = player_id 
+                        ORDER BY sus_points DESC  
+                        ''')
+        scoreboard = cur.fetchall()
+    for player in scoreboard:
+        msg += f'{player[0].title()}: {player[1]}\n'
+    await ctx.send(msg)
+
+
 
 @bot.command(name="bad_bot")
 async def bad_bot(ctx):
