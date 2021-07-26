@@ -5,7 +5,7 @@ import sqlite3 as sql
 import random
 import math
 
-from read_img import process_stats
+# from read_img import process_stats
 from database_commands import database_operation, post_stats
 
 import discord
@@ -23,35 +23,36 @@ TOKEN = os.getenv('TOKEN')
 USER_TO_SEND = int(os.getenv('USER_TO_SEND'))
 GUILD = int(os.getenv('GUILD'))
 database_loc = 'amongus.db'
-DEATH_MIN = 259200
-DEATH_MAX = 604800
+DEATH_MIN = 86400
+DEATH_MAX = 172800
+CREWMATES_ID = 807475316477132871
 
-def read_wilk_data():
-    with open('data.csv') as csvfile:
-        csv_reader = csv.reader(csvfile)
-        wilk_data = [i for i in csv_reader]
-        return wilk_data[1]
+# def read_wilk_data():
+#     with open('data.csv') as csvfile:
+#         csv_reader = csv.reader(csvfile)
+#         wilk_data = [i for i in csv_reader]
+#         return wilk_data[1]
 
-def add_wilk_data(stats, wilk_base):
-    stats["Bodies Reported"] += int(wilk_base[0])
-    stats["Emergencies Called"] += int(wilk_base[1])
-    stats["Tasks Completed"] += int(wilk_base[2])
-    stats["All Tasks Completed"] += int(wilk_base[3])
-    stats["Sabotages Fixed"]+= int(wilk_base[4])
-    stats["Impostor Kills"]+= int(wilk_base[5])
-    stats["Times Murdered"]+= int(wilk_base[6])
-    stats["Times Ejected"]+= int(wilk_base[7])
-    # stats["Crewmate Streak"]+= int(wilk_base[8])
-    stats["Times Impostor"]+= int(wilk_base[9])
-    stats["Times Crewmate"]+= int(wilk_base[10])
-    stats["Games Started"]+= int(wilk_base[11])
-    stats["Games Finished"]+= int(wilk_base[12])
-    stats["Impostor Vote Wins"]+= int(wilk_base[13])
-    stats["Impostor Kill Wins"]+= int(wilk_base[14])
-    stats["Impostor Sabotage Wins"]+= int(wilk_base[15])
-    stats["Crewmate Vote Wins"]+= int(wilk_base[16])
-    stats["Crewmate Task Wins"]+= int(wilk_base[17])
-    return stats
+# def add_wilk_data(stats, wilk_base):
+#     stats["Bodies Reported"] += int(wilk_base[0])
+#     stats["Emergencies Called"] += int(wilk_base[1])
+#     stats["Tasks Completed"] += int(wilk_base[2])
+#     stats["All Tasks Completed"] += int(wilk_base[3])
+#     stats["Sabotages Fixed"]+= int(wilk_base[4])
+#     stats["Impostor Kills"]+= int(wilk_base[5])
+#     stats["Times Murdered"]+= int(wilk_base[6])
+#     stats["Times Ejected"]+= int(wilk_base[7])
+#     # stats["Crewmate Streak"]+= int(wilk_base[8])
+#     stats["Times Impostor"]+= int(wilk_base[9])
+#     stats["Times Crewmate"]+= int(wilk_base[10])
+#     stats["Games Started"]+= int(wilk_base[11])
+#     stats["Games Finished"]+= int(wilk_base[12])
+#     stats["Impostor Vote Wins"]+= int(wilk_base[13])
+#     stats["Impostor Kill Wins"]+= int(wilk_base[14])
+#     stats["Impostor Sabotage Wins"]+= int(wilk_base[15])
+#     stats["Crewmate Vote Wins"]+= int(wilk_base[16])
+#     stats["Crewmate Task Wins"]+= int(wilk_base[17])
+#     return stats
 
 def resetcountdown():
     seconds_to_death = random.randint(DEATH_MIN, DEATH_MAX)
@@ -94,7 +95,7 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 async def on_ready():
     print("Logged In")
     channel = bot.get_channel(804024552631828530)
-    # await channel.send("Hello, I've been sleeping, how are you Crew?")
+    await channel.send("Hello, I've been sleeping, how are you Crew?")
     change_status.start()
     chat_exporter.init_exporter(bot)
     countdown.start()
@@ -180,43 +181,47 @@ async def whosus(ctx):
     player = random.choice(players)
     with sql.connect(database_loc) as db:
         cur = db.cursor()
-        cur.execute(''' SELECT id, message FROM messages WHERE category  = 1 ''' )
+        cur.execute(''' SELECT id, message, use_count FROM messages WHERE category  = 1 ''' )
         options = cur.fetchall()
         message = random.choice(options)
         await ctx.send(f"{player} {message[1]}")
+        if message[2] == 0:
+            crewmates = discord.utils.get(ctx.guild.roles, id=CREWMATES_ID)
+            await ctx.send(f'{crewmates.mention}: Congratulations {ctx.author.mention} has found an unseen sus message!')
+            add_points(ctx.author.id, 5)
         cur.execute(''' UPDATE messages SET use_count = use_count + 1 WHERE id = ? ''', (message[0],))
     resetcountdown()
     points = award_points()
     add_points(ctx.author.id, points)
 
 
-@bot.command(name='upload_stats', aliases=['us', 'u'], description='reads a screenshot attached to feed the database with stats')
-async def upload_stats(ctx):
-    players_roles = [role.id for role in ctx.author.roles]
-    required_server = bot.get_guild(id=GUILD)
-    role = discord.utils.get(required_server.roles, id=807475316477132871)
-    if ctx.message.attachments:
-        for attachment in ctx.message.attachments:
-            file_name = f"temp/{ctx.message.author.name}_{attachment.filename}"
-            await attachment.save(file_name)
-            stats = process_stats(file_name)
-            if stats != None:
-                if ctx.author.id == USER_TO_SEND:
-                    wilk_base = read_wilk_data()
-                    stats = add_wilk_data(stats, wilk_base)
-                    await ctx.send('LaWilk is a special case')
-                database_operation(ctx.author.id, ctx.author.name.lower(), stats)
-                print(f"{ctx.author} stats added")
-                if 807475316477132871 not in players_roles:
-                    await ctx.author.add_roles(role)
-                    await ctx.author.send(f"{ctx.author.mention} You have been added to the Crewmates")
-            else:
-                print(f"{ctx.author} stats failed")
-            os.remove(file_name)        
-        with open('tasks.txt') as f:
-            tasks = f.readlines()
-        await ctx.send(f"{ctx.message.author.name} {random.choice(tasks).strip()}... Task Complete!")
-        add_points(ctx.author.id, 5)
+# @bot.command(name='upload_stats', aliases=['us', 'u'], description='reads a screenshot attached to feed the database with stats')
+# async def upload_stats(ctx):
+#     players_roles = [role.id for role in ctx.author.roles]
+#     required_server = bot.get_guild(id=GUILD)
+#     role = discord.utils.get(required_server.roles, id=CREWMATES_ID)
+#     if ctx.message.attachments:
+#         for attachment in ctx.message.attachments:
+#             file_name = f"temp/{ctx.message.author.name}_{attachment.filename}"
+#             await attachment.save(file_name)
+#             stats = process_stats(file_name)
+#             if stats != None:
+#                 if ctx.author.id == USER_TO_SEND:
+#                     wilk_base = read_wilk_data()
+#                     stats = add_wilk_data(stats, wilk_base)
+#                     await ctx.send('LaWilk is a special case')
+#                 database_operation(ctx.author.id, ctx.author.name.lower(), stats)
+#                 print(f"{ctx.author} stats added")
+#                 if CREWMATES_ID not in players_roles:
+#                     await ctx.author.add_roles(role)
+#                     await ctx.author.send(f"{ctx.author.mention} You have been added to the Crewmates")
+#             else:
+#                 print(f"{ctx.author} stats failed")
+#             os.remove(file_name)        
+#         with open('tasks.txt') as f:
+#             tasks = f.readlines()
+#         await ctx.send(f"{ctx.message.author.name} {random.choice(tasks).strip()}... Task Complete!")
+#         add_points(ctx.author.id, 5)
 
 @bot.command(name='wins', description='calculates sum of ways to win either imp/crew and finds % times you win. add impostor or crewmate as argument')
 async def win_rate(ctx, play_type):
@@ -262,7 +267,7 @@ async def kills_per_game(ctx):
         response += f'{k}: {v}\n'
     await ctx.send(response)
 
-@bot.command(name="throw_sus")
+@bot.command(name="throw_sus", aliases=["ts"])
 async def throw_sus(ctx):
     print(f"{ctx.author.name} called throw_sus" )
     members = ctx.guild.members
@@ -309,7 +314,7 @@ async def add_msg(ctx, *, args):
     required_server = bot.get_guild(id=GUILD)
     target_user = discord.utils.get(required_server.members, id=ctx.author.id)
 
-    role_id = 807475316477132871
+    role_id = CREWMATES_ID
     if role_id in [i.id for i in target_user.roles]:
         cut_string = args.split(' ', 1)
         category = cut_string[0]
