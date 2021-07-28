@@ -341,10 +341,9 @@ async def add_msg(ctx, *, args):
         await ctx.send('You need Crewmate Role to post this!')
 
 
-# @bot.command(name="good_bot")
-# async def thanks(ctx):
-#     await ctx.send(f"Why, thanks {ctx.author.mention} :dog: :robot:")
-#     await bot.login(TOKEN)
+@bot.command(name="good_bot")
+async def thanks(ctx):
+    await ctx.send(f"Why, thanks {ctx.author.mention} :dog: :robot:")
 
 # @bot.command(name="export")
 # async def save(ctx, limit=7000):
