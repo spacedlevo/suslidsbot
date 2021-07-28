@@ -12,7 +12,7 @@ import discord
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
 import csv
-import chat_exporter
+# import chat_exporter
 import io
 
 intents = discord.Intents.default()
@@ -341,26 +341,26 @@ async def add_msg(ctx, *, args):
         await ctx.send('You need Crewmate Role to post this!')
 
 
-@bot.command(name="good_bot")
-async def thanks(ctx):
-    await ctx.send(f"Why, thanks {ctx.author.mention} :dog: :robot:")
-    await bot.login(TOKEN)
+# @bot.command(name="good_bot")
+# async def thanks(ctx):
+#     await ctx.send(f"Why, thanks {ctx.author.mention} :dog: :robot:")
+#     await bot.login(TOKEN)
 
-@bot.command(name="export")
-async def save(ctx, limit=7000):
-    if ctx.author.guild_permissions.administrator == True:
-        messages = await ctx.channel.history(limit=limit).flatten()
-        transcript = await chat_exporter.raw_export(ctx.channel, messages)
+# @bot.command(name="export")
+# async def save(ctx, limit=7000):
+#     if ctx.author.guild_permissions.administrator == True:
+#         messages = await ctx.channel.history(limit=limit).flatten()
+#         transcript = await chat_exporter.raw_export(ctx.channel, messages)
 
-        if transcript is None:
-            return
+#         if transcript is None:
+#             return
 
-        transcript_file = discord.File(io.BytesIO(transcript.encode()),
-                                    filename=f"transcript-{ctx.channel.name}.html")
+#         transcript_file = discord.File(io.BytesIO(transcript.encode()),
+#                                     filename=f"transcript-{ctx.channel.name}.html")
 
-        await ctx.author.send(file=transcript_file)
-    else:
-        await ctx.send("You have no authority here, Jackie Weaver")
+#         await ctx.author.send(file=transcript_file)
+#     else:
+#         await ctx.send("You have no authority here, Jackie Weaver")
 
 @bot.command(name="xp")
 async def xp_leaderboard(ctx):
