@@ -97,7 +97,6 @@ async def on_ready():
     channel = bot.get_channel(804024552631828530)
     await channel.send("Hello, I've been sleeping, how are you Crew?")
     change_status.start()
-    chat_exporter.init_exporter(bot)
     countdown.start()
 
 @bot.command(name='players', description='list of players in the database')
@@ -294,11 +293,11 @@ async def change_status():
     await bot.change_presence(activity=discord.Game(name=msg))
 
 
-@tasks.loop(seconds=1)
+@tasks.loop(seconds=30)
 async def countdown():
     with sql.connect(database_loc) as db:
         cur = db.cursor()
-        cur.execute(''' UPDATE countdown SET seconds_left = seconds_left - 1 ''')
+        cur.execute(''' UPDATE countdown SET seconds_left = seconds_left - 30 ''')
         cur.execute(''' SELECT seconds_left FROM countdown ''')
         seconds_left = cur.fetchone()[0]
     if seconds_left < 0:
