@@ -195,7 +195,7 @@ async def whosus(ctx):
         points = award_points()
         add_points(ctx.author.id, points)
     else:
-        ctx.send('You need to be a crewmate to call whose sus, to do so use command `!add`')
+        await ctx.send('You need to be a crewmate to call whose sus, to do so use command `!add`')
 
 
 # @bot.command(name='upload_stats', aliases=['us', 'u'], description='reads a screenshot attached to feed the database with stats')
@@ -234,7 +234,7 @@ async def add_to_crewmates(ctx):
     if CREWMATES_ID not in players_roles:
         add_user (ctx.author.id, ctx.author.name.lower())
         await ctx.author.add_roles(role)
-        await ctx.author.send(f'{ctx.author.mention} has been successfully added to crewmates')
+        await ctx.send(f'{ctx.author.mention} has been successfully added to crewmates')
 
 
 @bot.command(name='wins', description='calculates sum of ways to win either imp/crew and finds % times you win. add impostor or crewmate as argument')
