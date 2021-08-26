@@ -6,7 +6,7 @@ import random
 import math
 
 # from read_img import process_stats
-from database_commands import database_operation, post_stats
+from database_commands import database_operation, post_stats, add_user
 
 import discord
 from discord.ext import commands, tasks
@@ -171,27 +171,31 @@ async def stat_list(ctx):
 
 @bot.command(name='whose_sus?', aliases=['ws', 'whose_sus', 'who_is_sus'] , description='shoot in the dark to whose the imp')
 async def whosus(ctx):
-    with sql.connect(database_loc) as db:
-        cur = db.cursor()
-        cur.execute(''' SELECT name FROM players  ''') 
-        results = cur.fetchall()
+    players_roles = [role.id for role in ctx.author.roles]
+    if CREWMATES_ID in players_roles:
+        with sql.connect(database_loc) as db:
+            cur = db.cursor()
+            cur.execute(''' SELECT name FROM players  ''') 
+            results = cur.fetchall()
 
-    players = [name[0].title() for name in results]
-    player = random.choice(players)
-    with sql.connect(database_loc) as db:
-        cur = db.cursor()
-        cur.execute(''' SELECT id, message, use_count FROM messages WHERE category  = 1 ''' )
-        options = cur.fetchall()
-        message = random.choice(options)
-        await ctx.send(f"{player} {message[1]}")
-        if message[2] == 0:
-            crewmates = discord.utils.get(ctx.guild.roles, id=CREWMATES_ID)
-            await ctx.send(f'{crewmates.mention}: Congratulations {ctx.author.mention} has found an unseen sus message!')
-            add_points(ctx.author.id, 5)
-        cur.execute(''' UPDATE messages SET use_count = use_count + 1 WHERE id = ? ''', (message[0],))
-    resetcountdown()
-    points = award_points()
-    add_points(ctx.author.id, points)
+        players = [name[0].title() for name in results]
+        player = random.choice(players)
+        with sql.connect(database_loc) as db:
+            cur = db.cursor()
+            cur.execute(''' SELECT id, message, use_count FROM messages WHERE category  = 1 ''' )
+            options = cur.fetchall()
+            message = random.choice(options)
+            await ctx.send(f"{player} {message[1]}")
+            if message[2] == 0:
+                crewmates = discord.utils.get(ctx.guild.roles, id=CREWMATES_ID)
+                await ctx.send(f'{crewmates.mention}: Congratulations {ctx.author.mention} has found an unseen sus message!')
+                add_points(ctx.author.id, 5)
+            cur.execute(''' UPDATE messages SET use_count = use_count + 1 WHERE id = ? ''', (message[0],))
+        resetcountdown()
+        points = award_points()
+        add_points(ctx.author.id, points)
+    else:
+        ctx.send('You need to be a crewmate to call whose sus, to do so use command `!add`')
 
 
 # @bot.command(name='upload_stats', aliases=['us', 'u'], description='reads a screenshot attached to feed the database with stats')
@@ -221,6 +225,17 @@ async def whosus(ctx):
 #             tasks = f.readlines()
 #         await ctx.send(f"{ctx.message.author.name} {random.choice(tasks).strip()}... Task Complete!")
 #         add_points(ctx.author.id, 5)
+
+@bot.command(name='add', aliases=['a'])
+async def add_to_crewmates(ctx):
+    players_roles = [role.id for role in ctx.author.roles]
+    required_server = bot.get_guild(id=GUILD)
+    role = discord.utils.get(required_server.roles, id=CREWMATES_ID)
+    if CREWMATES_ID not in players_roles:
+        add_user (ctx.author.id, ctx.author.name.lower())
+        await ctx.author.add_roles(role)
+        await ctx.author.send(f'{ctx.author.mention} has been successfully added to crewmates')
+
 
 @bot.command(name='wins', description='calculates sum of ways to win either imp/crew and finds % times you win. add impostor or crewmate as argument')
 async def win_rate(ctx, play_type):
@@ -374,7 +389,6 @@ async def xp_leaderboard(ctx):
     for player in scoreboard:
         msg += f'{player[0].title()}: {player[1]}\n'
     await ctx.send(msg)
-
 
 
 @bot.command(name="bad_bot")
